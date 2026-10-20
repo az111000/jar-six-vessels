@@ -85,11 +85,12 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--rule);paddin
 .search input{flex:1 1 220px;min-width:0}
 .search button{background:var(--ink);color:var(--wall);border-color:var(--ink);cursor:pointer;padding-inline:18px}
 .status{font-family:var(--mono);font-size:12px;color:var(--muted);min-height:1.6em}
-.grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:20px}
-.card{display:grid;gap:8px;color:var(--ink);text-align:left;font:inherit;background:none;border:0;padding:0;cursor:pointer;width:100%}
+.grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr));gap:20px}
+.grid li{min-width:0}
+.card{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:8px;color:var(--ink);text-align:left;font:inherit;background:none;border:0;padding:0;cursor:pointer;width:100%}
 .card:hover strong{text-decoration:underline}
 .grid figure{padding:10px;aspect-ratio:1;display:grid;place-items:center}
-.grid figure img{max-height:100%;width:auto;object-fit:contain}
+.grid figure img{max-height:100%;max-width:100%;width:auto;object-fit:contain}
 .grid strong{font-weight:500;font-size:14px;line-height:1.35}
 .grid span{font-family:var(--mono);font-size:12px;color:var(--muted)}
 .loadmore{justify-self:start;font:inherit;font-size:15px;color:var(--ink);background:none;border:1px solid var(--ink);border-radius:4px;padding:9px 18px;cursor:pointer;min-height:44px}
