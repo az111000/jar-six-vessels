@@ -149,6 +149,7 @@ dialog.info::backdrop{background:rgba(0,0,0,.55)}
 .final .big{font-family:var(--display);font-size:clamp(48px,10vw,80px);line-height:1}
 .final ol{margin:0;padding-left:1.3em;display:grid;gap:4px;font-size:15px}
 .final .row{display:flex;flex-wrap:wrap;gap:12px}
+.game .meta .linkbtn{font-family:var(--mono);font-size:12px;margin-left:10px;min-height:32px}
 @media (max-width:640px){.stage{grid-template-columns:minmax(0,1fr)}.stage figure{max-width:300px}}
 </style>
 </head>
@@ -248,7 +249,7 @@ dialog.info::backdrop{background:rgba(0,0,0,.55)}
   <section class="game" id="game" hidden aria-labelledby="game-h">
     <div class="game-head">
       <h2 id="game-h">Date the Jar</h2>
-      <span class="meta" id="game-meta"></span>
+      <span class="meta"><span id="game-meta"></span> <button type="button" class="linkbtn" id="g-restart" hidden>Start over</button></span>
     </div>
     <p>Five mystery jars from the Harvard Art Museums, the same five for everyone today. Drag the slider to when you think each one was made. Land inside the museum's date range for 1,000 points.</p>
 
@@ -280,8 +281,10 @@ dialog.info::backdrop{background:rgba(0,0,0,.55)}
       <ol id="f-list"></ol>
       <div class="row">
         <button type="button" class="primary" id="f-share">Copy my score</button>
-        <span class="meta" id="f-note">New jars tomorrow.</span>
+        <button type="button" class="secondary" id="f-replay">Replay today’s jars</button>
+        <button type="button" class="secondary" id="f-practice">New practice game</button>
       </div>
+      <span class="meta" id="f-note"></span>
     </div>
   </section>
 
@@ -454,7 +457,8 @@ dialog.info::backdrop{background:rgba(0,0,0,.55)}
   const points = (d) => Math.round(1000 * Math.exp(-d / 300));
   const square = (p) => (p >= 900 ? "🟦" : p >= 600 ? "🟩" : p >= 300 ? "🟨" : "⬜");
 
-  let game, round = 0, results = [];
+  // mode is "daily" (saved, shareable) or "practice" (a random set, not saved).
+  let game, daily, mode = "daily", practiceSet = 0, round = 0, results = [];
   const range = $("g-range"), track = $("g-track");
   const pct = (y) => ((y - game.min) / (game.max - game.min)) * 100 + "%";
 
@@ -481,7 +485,7 @@ dialog.info::backdrop{background:rgba(0,0,0,.55)}
       li.className = i < round ? "done" : i === round ? "now" : "";
       return li;
     }));
-    $("game-meta").textContent = "Jar " + (round + 1) + " of " + game.jars.length + " · " + today;
+    $("game-meta").textContent = (mode === "practice" ? "Practice · " : "") + "Jar " + (round + 1) + " of " + game.jars.length + (mode === "daily" ? " · " + today : "");
     $("g-img").src = j.image;
     $("g-img").alt = "Mystery jar " + (round + 1);
     range.value = 0;
@@ -517,15 +521,45 @@ dialog.info::backdrop{background:rgba(0,0,0,.55)}
     $("g-next").focus();
   }
 
+  // Start a game from the first jar.
+  function begin(data, newMode) {
+    game = data;
+    mode = newMode;
+    round = 0;
+    results = [];
+    $("game-final").hidden = true;
+    $("game-play").hidden = false;
+    $("g-restart").hidden = false;
+    startRound();
+  }
+
+  async function practice() {
+    $("f-note").textContent = "Loading new jars…";
+    // Pick one of the 500 practice sets, never the same one twice in a row.
+    let n;
+    do n = 1 + Math.floor(Math.random() * 500); while (n === practiceSet);
+    try {
+      const r = await fetch("/api/daily?p=" + n);
+      if (!r.ok) throw new Error(r.status);
+      practiceSet = n;
+      begin(await r.json(), "practice");
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) {
+      $("f-note").textContent = "Couldn't load a practice game. Try again in a moment.";
+    }
+  }
+
   function finish() {
     const total = results.reduce((s, r) => s + r.points, 0);
-    store.set({ total, results });
+    if (mode === "daily") store.set({ total, results });
     showFinal(total, results);
   }
 
   function showFinal(total, res) {
     $("game-play").hidden = true;
-    $("game-meta").textContent = "Today · " + today;
+    $("g-restart").hidden = true;
+    $("game-meta").textContent = mode === "practice" ? "Practice game" : "Today · " + today;
+    $("f-note").textContent = mode === "practice" ? "Practice scores aren't saved." : "New jars tomorrow.";
     $("f-score").textContent = total.toLocaleString() + " / " + (res.length * 1000).toLocaleString();
     $("f-list").replaceChildren(...res.map((r) => {
       const li = document.createElement("li");
@@ -534,7 +568,7 @@ dialog.info::backdrop{background:rgba(0,0,0,.55)}
     }));
     $("game-final").hidden = false;
     $("f-share").onclick = async () => {
-      const text = "Date the Jar " + today + ": " + total.toLocaleString() + "/" + (res.length * 1000).toLocaleString() + "\n" +
+      const text = "Date the Jar " + (mode === "practice" ? "(practice)" : today) + ": " + total.toLocaleString() + "/" + (res.length * 1000).toLocaleString() + "\n" +
         res.map((r) => square(r.points)).join("") + "\n" + location.origin;
       try { await navigator.clipboard.writeText(text); $("f-note").textContent = "Copied! Paste it anywhere."; }
       catch { $("f-note").textContent = text; }
@@ -543,6 +577,9 @@ dialog.info::backdrop{background:rgba(0,0,0,.55)}
 
   range.addEventListener("input", showYear);
   $("g-submit").addEventListener("click", lockIn);
+  $("g-restart").addEventListener("click", () => begin(game, mode));
+  $("f-replay").addEventListener("click", () => begin(daily, "daily"));
+  $("f-practice").addEventListener("click", practice);
   $("g-next").addEventListener("click", () => {
     round += 1;
     if (round < game.jars.length) { startRound(); $("g-submit").focus(); } else finish();
@@ -551,7 +588,7 @@ dialog.info::backdrop{background:rgba(0,0,0,.55)}
   fetch("/api/daily?d=" + today)
     .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
     .then((data) => {
-      game = data;
+      game = daily = data;
       range.min = data.min;
       range.max = data.max;
       drawTicks();
@@ -559,7 +596,7 @@ dialog.info::backdrop{background:rgba(0,0,0,.55)}
       playLink.hidden = false;
       const saved = store.get();
       if (saved && saved.results?.length === data.jars.length) showFinal(saved.total, saved.results);
-      else startRound();
+      else begin(data, "daily");
     })
     .catch((e) => console.warn("Date the Jar unavailable", e));
 })();

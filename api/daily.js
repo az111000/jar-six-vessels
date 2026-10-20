@@ -2,23 +2,35 @@
 // Everyone gets the same five jars on the same day: the date seeds Harvard's
 // random sort, and because the date is in the URL, Vercel caches each day's
 // set, so Harvard is called about once a day.
+//
+// GET /api/daily?p=<1-500>: a practice set. Practice sets are numbered, so there
+// are only 500 of them and each one is cached the same way.
 const { harvard, send, fail, EXHIBITION_IDS } = require("./_harvard");
 
 const ROUNDS = 5;
 const MIN_YEAR = -3000;
 const MAX_YEAR = 2000;
+const PRACTICE_SETS = 500;
 
 module.exports = (req, res) =>
   send(res, async () => {
-    const d = String(req.query.d ?? "");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw fail(400, "Invalid date.");
-    // Accept the visitor's local date only if it is within a day of the server's,
-    // so nobody can fetch (and cache) far-future puzzles.
-    const diff = Math.abs(Date.parse(d + "T00:00:00Z") - Date.now()) / 86400000;
-    if (!(diff < 2)) throw fail(400, "Invalid date.");
+    let seed;
+    if (req.query.p !== undefined) {
+      const p = String(req.query.p);
+      if (!/^\d{1,3}$/.test(p) || +p < 1 || +p > PRACTICE_SETS) throw fail(400, "Invalid practice set.");
+      seed = p; // 1-500, never the same as a date seed (8 digits)
+    } else {
+      const d = String(req.query.d ?? "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw fail(400, "Invalid date.");
+      // Accept the visitor's local date only if it is within a day of the server's,
+      // so nobody can fetch (and cache) far-future puzzles.
+      const diff = Math.abs(Date.parse(d + "T00:00:00Z") - Date.now()) / 86400000;
+      if (!(diff < 2)) throw fail(400, "Invalid date.");
+      seed = d.replaceAll("-", "");
+    }
 
     const data = await harvard(
-      { title: "jar", classification: "Vessels", hasimage: 1, sort: "random:" + d.replaceAll("-", ""), size: 40 },
+      { title: "jar", classification: "Vessels", hasimage: 1, sort: "random:" + seed, size: 40 },
       { fields: "id,title,dated,datebegin,dateend,culture,url,primaryimageurl,imagepermissionlevel,images" }
     );
 
@@ -34,5 +46,5 @@ module.exports = (req, res) =>
       if (jars.length === ROUNDS) break;
     }
     if (jars.length < ROUNDS) throw fail(502, "Not enough jars today");
-    return { date: d, min: MIN_YEAR, max: MAX_YEAR, jars };
+    return { min: MIN_YEAR, max: MAX_YEAR, jars };
   });
