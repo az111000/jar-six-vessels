@@ -5,7 +5,7 @@ const { harvard, clean, send, EXHIBITION_IDS } = require("./_harvard");
 module.exports = (req, res) =>
   send(res, async () => {
     const data = await harvard({
-      q: "title:jar",
+      title: "jar",
       classification: "Vessels",
       hasimage: 1,
       sort: "totalpageviews",

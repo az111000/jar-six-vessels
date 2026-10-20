@@ -22,7 +22,7 @@ module.exports = (req, res) =>
 
     const params = { classification: "Vessels", hasimage: 1, size: PAGE_SIZE, page };
     if (q) params.keyword = q;
-    if (scope === "jars") params.q = "title:jar";
+    if (scope === "jars") params.title = "jar";
     if (!q) Object.assign(params, { sort: "totalpageviews", sortorder: "desc" });
 
     const data = await harvard(params);
