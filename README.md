@@ -21,6 +21,7 @@ The page loads larger photos, credit lines and a "More jars in the collection" s
 - `/api/more` returns other jars from the collection whose images the museum allows to be displayed.
 - `/api/search?q=…&scope=jars|vessels&page=…` powers the search box. It accepts only plain words (no query syntax), searches vessels only, and allows up to 20 pages of 12 results.
 - `/api/object/<id>` returns one object's full record for the "More information" panel.
+- `/api/daily?d=YYYY-MM-DD` returns the five jars for **Date the Jar**, a daily game where you guess when each jar was made. The date seeds Harvard's random sort, so everyone gets the same five jars each day.
 
 The API key is **not** in this repository. The functions read it from the `HARVARD_API_KEY` environment variable, set in the Vercel project settings. If the key is missing or the API is down, the page still shows the photos and text built into `index.html`.
 

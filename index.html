@@ -106,6 +106,49 @@ dialog.info::backdrop{background:rgba(0,0,0,.55)}
 .info section{display:grid;gap:6px}
 .info h4{font-family:var(--mono);font-weight:400;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
 .info section p{margin:0;white-space:pre-line;max-width:65ch}
+
+/* "Date the Jar" game */
+.play-link{justify-self:start;font-family:var(--mono);font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--wall);background:var(--cobalt);padding:10px 16px;border-radius:4px;text-decoration:none}
+.play-link[hidden]{display:none}
+.play-link:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.game{display:grid;gap:22px;background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:clamp(20px,4vw,40px)}
+.game[hidden]{display:none}
+.game-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px 24px}
+.game h2{font-family:var(--display);font-weight:400;font-size:clamp(32px,6vw,48px);line-height:1;margin:0}
+.game .meta{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.game > p{margin:0;max-width:62ch}
+.stage{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:28px;align-items:start}
+.stage figure{background:var(--wall);aspect-ratio:4/5;display:grid;place-items:center;padding:12px}
+.stage figure img{max-height:100%;width:auto;object-fit:contain}
+.controls{display:grid;gap:16px;min-width:0}
+.guess-year{font-family:var(--display);font-size:clamp(40px,8vw,64px);line-height:1}
+.slider-wrap{position:relative;padding-block:6px 4px}
+.slider-wrap input[type=range]{width:100%;accent-color:var(--cobalt);min-height:44px;margin:0}
+.track{position:relative;height:34px;margin-inline:9px}
+.track .ax{position:absolute;left:0;right:0;top:8px;border-top:1px solid var(--ink)}
+.track .tk{position:absolute;top:8px;transform:translateX(-50%);font-family:var(--mono);font-size:10px;color:var(--muted);padding-top:8px;white-space:nowrap}
+.track .tk::before{content:"";position:absolute;left:50%;top:0;height:5px;border-left:1px solid var(--ink)}
+.track .ans{position:absolute;top:2px;height:12px;min-width:4px;background:var(--cobalt);opacity:.85;border-radius:2px}
+.track .you{position:absolute;top:-2px;width:2px;height:20px;background:var(--ink);transform:translateX(-50%)}
+.game button.primary{justify-self:start;font:inherit;font-size:15px;font-weight:500;color:var(--wall);background:var(--ink);border:0;border-radius:4px;padding:11px 22px;cursor:pointer;min-height:44px}
+.game button.secondary{justify-self:start;font:inherit;font-size:15px;color:var(--ink);background:none;border:1px solid var(--ink);border-radius:4px;padding:10px 20px;cursor:pointer;min-height:44px}
+.game button:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px}
+.reveal{display:grid;gap:6px}
+.reveal[hidden]{display:none}
+.reveal .pts{font-family:var(--display);font-size:28px;line-height:1.1}
+.reveal .what{margin:0;font-size:15px}
+.reveal .off{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.reveal a{color:var(--cobalt);font-size:14px}
+.pips{display:flex;gap:6px;list-style:none;margin:0;padding:0}
+.pips li{width:28px;height:6px;border-radius:3px;background:var(--rule)}
+.pips li.done{background:var(--cobalt)}
+.pips li.now{background:var(--ink)}
+.final{display:grid;gap:14px}
+.final[hidden]{display:none}
+.final .big{font-family:var(--display);font-size:clamp(48px,10vw,80px);line-height:1}
+.final ol{margin:0;padding-left:1.3em;display:grid;gap:4px;font-size:15px}
+.final .row{display:flex;flex-wrap:wrap;gap:12px}
+@media (max-width:640px){.stage{grid-template-columns:minmax(0,1fr)}.stage figure{max-width:300px}}
 </style>
 </head>
 <body>
@@ -114,6 +157,7 @@ dialog.info::backdrop{background:rgba(0,0,0,.55)}
     <span class="eyebrow">Harvard Art Museums · Vessels</span>
     <h1>Jar</h1>
     <p class="intro">A jar is the simplest answer to an old problem: how to hold something and keep it. These six were made between about 490 BCE and the 1700s, in Greece, southern Italy, Korea and China. They held oil, water, ashes and grain. Some were built for the kitchen, others for the grave or the palace. Read in order, they show the same shape carrying very different jobs.</p>
+    <a class="play-link" id="play-link" href="#game" hidden>Play today’s game: Date the Jar →</a>
   </header>
 
   <div class="rule" aria-label="Timeline, 550 BCE to 1800 CE, drawn to scale">
@@ -199,6 +243,46 @@ dialog.info::backdrop{background:rgba(0,0,0,.55)}
       </div>
     </li>
   </ol>
+
+  <section class="game" id="game" hidden aria-labelledby="game-h">
+    <div class="game-head">
+      <h2 id="game-h">Date the Jar</h2>
+      <span class="meta" id="game-meta"></span>
+    </div>
+    <p>Five mystery jars from the Harvard Art Museums, the same five for everyone today. Drag the slider to when you think each one was made. Land inside the museum's date range for 1,000 points.</p>
+
+    <div id="game-play">
+      <ol class="pips" id="pips" aria-hidden="true"></ol>
+      <div class="stage" style="margin-top:18px">
+        <figure><img id="g-img" alt="Mystery jar" src="data:,"></figure>
+        <div class="controls">
+          <div class="guess-year" id="g-year" aria-hidden="true">1 CE</div>
+          <div class="slider-wrap">
+            <label class="visually-hidden" for="g-range">Your guess, in years</label>
+            <input type="range" id="g-range" min="-3000" max="2000" step="10" value="0">
+            <div class="track" id="g-track"><div class="ax"></div></div>
+          </div>
+          <button type="button" class="primary" id="g-submit">Lock in guess</button>
+          <div class="reveal" id="g-reveal" hidden aria-live="polite">
+            <div class="pts" id="g-pts"></div>
+            <p class="what" id="g-what"></p>
+            <span class="off" id="g-off"></span>
+            <a id="g-link" target="_blank" rel="noopener">See this jar on the museum's website</a>
+            <button type="button" class="secondary" id="g-next" style="margin-top:8px">Next jar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="final" id="game-final" hidden aria-live="polite">
+      <div class="big" id="f-score"></div>
+      <ol id="f-list"></ol>
+      <div class="row">
+        <button type="button" class="primary" id="f-share">Copy my score</button>
+        <span class="meta" id="f-note">New jars tomorrow.</span>
+      </div>
+    </div>
+  </section>
 
   <section class="more" id="more" hidden aria-labelledby="more-h">
     <h2 id="more-h">More jars in the collection</h2>
@@ -346,6 +430,137 @@ dialog.info::backdrop{background:rgba(0,0,0,.55)}
     status.textContent = "Most-viewed jars in the collection";
     section.hidden = false;
   }).catch((e) => console.warn("Collection search unavailable", e));
+})();
+</script>
+<script>
+// "Date the Jar": a daily game using /api/daily. Each day's five jars are the
+// same for everyone; finished results are remembered in this browser only.
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const section = $("game"), playLink = $("play-link");
+  const fmt = (y) => (y < 0 ? Math.abs(y).toLocaleString() + " BCE" : y === 0 ? "1 CE" : y.toLocaleString() + " CE");
+  const pad = (n) => String(n).padStart(2, "0");
+  const now = new Date();
+  const today = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
+  const KEY = "date-the-jar:" + today;
+  const store = {
+    get() { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } },
+    set(v) { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch {} },
+  };
+
+  // Distance in years from the museum's date range (0 if inside it), and points.
+  const distance = (g, j) => (g < j.begin ? j.begin - g : g > j.end ? g - j.end : 0);
+  const points = (d) => Math.round(1000 * Math.exp(-d / 300));
+  const square = (p) => (p >= 900 ? "🟦" : p >= 600 ? "🟩" : p >= 300 ? "🟨" : "⬜");
+
+  let game, round = 0, results = [];
+  const range = $("g-range"), track = $("g-track");
+  const pct = (y) => ((y - game.min) / (game.max - game.min)) * 100 + "%";
+
+  function drawTicks() {
+    for (const y of [-3000, -2000, -1000, 0, 1000, 2000]) {
+      const t = document.createElement("span");
+      t.className = "tk";
+      t.style.left = pct(y);
+      t.textContent = y === 0 ? "1 CE" : y < 0 ? Math.abs(y) + " BCE" : String(y);
+      track.append(t);
+    }
+  }
+
+  function showYear() {
+    const y = Number(range.value);
+    $("g-year").textContent = fmt(y);
+    range.setAttribute("aria-valuetext", fmt(y));
+  }
+
+  function startRound() {
+    const j = game.jars[round];
+    $("pips").replaceChildren(...game.jars.map((_, i) => {
+      const li = document.createElement("li");
+      li.className = i < round ? "done" : i === round ? "now" : "";
+      return li;
+    }));
+    $("game-meta").textContent = "Jar " + (round + 1) + " of " + game.jars.length + " · " + today;
+    $("g-img").src = j.image;
+    $("g-img").alt = "Mystery jar " + (round + 1);
+    range.value = 0;
+    range.disabled = false;
+    showYear();
+    track.querySelectorAll(".ans,.you").forEach((n) => n.remove());
+    $("g-reveal").hidden = true;
+    $("g-submit").hidden = false;
+  }
+
+  function lockIn() {
+    const j = game.jars[round], g = Number(range.value);
+    const d = distance(g, j), p = points(d);
+    results.push({ guess: g, points: p, title: j.title, dated: j.dated });
+    range.disabled = true;
+    $("g-submit").hidden = true;
+
+    const ans = document.createElement("div");
+    ans.className = "ans";
+    ans.style.left = pct(j.begin);
+    ans.style.width = "calc(" + pct(j.end) + " - " + pct(j.begin) + ")";
+    const you = document.createElement("div");
+    you.className = "you";
+    you.style.left = pct(g);
+    track.append(ans, you);
+
+    $("g-pts").textContent = "+" + p.toLocaleString() + " points";
+    $("g-what").textContent = j.title + (j.culture ? " · " + j.culture : "") + " · " + (j.dated || fmt(j.begin) + "–" + fmt(j.end));
+    $("g-off").textContent = d === 0 ? "Inside the museum's date range!" : "You were " + d.toLocaleString() + " years off.";
+    $("g-link").href = j.url;
+    $("g-next").textContent = round === game.jars.length - 1 ? "See my score" : "Next jar";
+    $("g-reveal").hidden = false;
+    $("g-next").focus();
+  }
+
+  function finish() {
+    const total = results.reduce((s, r) => s + r.points, 0);
+    store.set({ total, results });
+    showFinal(total, results);
+  }
+
+  function showFinal(total, res) {
+    $("game-play").hidden = true;
+    $("game-meta").textContent = "Today · " + today;
+    $("f-score").textContent = total.toLocaleString() + " / " + (res.length * 1000).toLocaleString();
+    $("f-list").replaceChildren(...res.map((r) => {
+      const li = document.createElement("li");
+      li.textContent = square(r.points) + " " + r.points.toLocaleString() + " · " + r.title + " (" + r.dated + "; you said " + fmt(r.guess) + ")";
+      return li;
+    }));
+    $("game-final").hidden = false;
+    $("f-share").onclick = async () => {
+      const text = "Date the Jar " + today + ": " + total.toLocaleString() + "/" + (res.length * 1000).toLocaleString() + "\n" +
+        res.map((r) => square(r.points)).join("") + "\n" + location.origin;
+      try { await navigator.clipboard.writeText(text); $("f-note").textContent = "Copied! Paste it anywhere."; }
+      catch { $("f-note").textContent = text; }
+    };
+  }
+
+  range.addEventListener("input", showYear);
+  $("g-submit").addEventListener("click", lockIn);
+  $("g-next").addEventListener("click", () => {
+    round += 1;
+    if (round < game.jars.length) { startRound(); $("g-submit").focus(); } else finish();
+  });
+
+  fetch("/api/daily?d=" + today)
+    .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+    .then((data) => {
+      game = data;
+      range.min = data.min;
+      range.max = data.max;
+      drawTicks();
+      section.hidden = false;
+      playLink.hidden = false;
+      const saved = store.get();
+      if (saved && saved.results?.length === data.jars.length) showFinal(saved.total, saved.results);
+      else startRound();
+    })
+    .catch((e) => console.warn("Date the Jar unavailable", e));
 })();
 </script>
 </body>
