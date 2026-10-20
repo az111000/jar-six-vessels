@@ -11,16 +11,27 @@ const EXHIBITION_IDS = [288118, 304069, 288856, 200906, 196997, 70504];
 
 const FIELDS = "id,objectnumber,title,dated,culture,medium,dimensions,creditline,url,primaryimageurl,imagepermissionlevel,images";
 
-async function harvard(params) {
+// Fields for the "More information" panel.
+const DETAIL_FIELDS = FIELDS + ",period,century,technique,classification,people,description,labeltext,provenance,commentary";
+
+function fail(status, message) {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+}
+
+// path is "" for a search, or "/<id>" for one object.
+async function harvard(params, { path = "", fields = FIELDS } = {}) {
   const key = process.env.HARVARD_API_KEY;
   if (!key) {
     const err = new Error("HARVARD_API_KEY is not set");
     err.status = 503;
     throw err;
   }
-  const url = new URL(BASE);
-  url.search = new URLSearchParams({ ...params, fields: FIELDS, apikey: key });
+  const url = new URL(BASE + path);
+  url.search = new URLSearchParams({ ...params, fields, apikey: key });
   const r = await fetch(url);
+  if (r.status === 404) throw fail(404, "Not found");
   if (!r.ok) {
     // Never forward Harvard's response body: it could echo the request URL, which contains the key.
     const err = new Error("Harvard API returned " + r.status);
@@ -49,6 +60,24 @@ function clean(rec) {
   };
 }
 
+// Everything clean() returns, plus the longer texts. Harvard's texts are plain
+// text; the page inserts them with textContent, never as HTML.
+function detail(rec) {
+  const people = (rec.people || []).map((p) => [p.role, p.name].filter(Boolean).join(": "));
+  return {
+    ...clean(rec),
+    period: rec.period,
+    century: rec.century,
+    technique: rec.technique,
+    classification: rec.classification,
+    people,
+    description: rec.description,
+    labeltext: rec.labeltext,
+    commentary: rec.commentary,
+    provenance: rec.provenance,
+  };
+}
+
 function send(res, fn) {
   return fn().then(
     (body) => {
@@ -57,11 +86,15 @@ function send(res, fn) {
       res.status(200).json(body);
     },
     (err) => {
-      console.error(err.message);
+      if (err.status !== 400 && err.status !== 404) console.error(err.message);
       res.setHeader("Cache-Control", "no-store");
-      res.status(err.status || 500).json({ error: "Collection data is unavailable right now." });
+      const message =
+        err.status === 400 ? err.message :
+        err.status === 404 ? "No record found." :
+        "Collection data is unavailable right now.";
+      res.status(err.status || 500).json({ error: message });
     }
   );
 }
 
-module.exports = { harvard, clean, send, EXHIBITION_IDS };
+module.exports = { harvard, clean, detail, send, fail, EXHIBITION_IDS, DETAIL_FIELDS };

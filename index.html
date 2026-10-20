@@ -70,19 +70,42 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--rule);paddin
   .tick{font-size:10px}
 }
 
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 /* live data from the Harvard API (filled in by the script below) */
 .credit{font-size:13px;color:var(--muted);margin:0}
+.src{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}
+.linkbtn{font:inherit;color:var(--cobalt);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline}
+.linkbtn:focus-visible,.search button:focus-visible,.search input:focus-visible,.search select:focus-visible,.card:focus-visible,.loadmore:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px}
 .more{display:grid;gap:24px}
 .more[hidden]{display:none}
 .more h2{font-family:var(--display);font-weight:400;font-size:clamp(32px,6vw,48px);line-height:1;margin:0}
 .more p{margin:0;color:var(--muted)}
+.search{display:flex;flex-wrap:wrap;gap:10px}
+.search input,.search select,.search button{font:inherit;font-size:15px;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:4px;padding:9px 12px;min-height:44px}
+.search input{flex:1 1 220px;min-width:0}
+.search button{background:var(--ink);color:var(--wall);border-color:var(--ink);cursor:pointer;padding-inline:18px}
+.status{font-family:var(--mono);font-size:12px;color:var(--muted);min-height:1.6em}
 .grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:20px}
-.grid a{display:grid;gap:8px;color:var(--ink);text-decoration:none}
-.grid a:hover strong,.grid a:focus-visible strong{text-decoration:underline}
+.card{display:grid;gap:8px;color:var(--ink);text-align:left;font:inherit;background:none;border:0;padding:0;cursor:pointer;width:100%}
+.card:hover strong{text-decoration:underline}
 .grid figure{padding:10px;aspect-ratio:1;display:grid;place-items:center}
 .grid figure img{max-height:100%;width:auto;object-fit:contain}
 .grid strong{font-weight:500;font-size:14px;line-height:1.35}
 .grid span{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.loadmore{justify-self:start;font:inherit;font-size:15px;color:var(--ink);background:none;border:1px solid var(--ink);border-radius:4px;padding:9px 18px;cursor:pointer;min-height:44px}
+.loadmore[hidden]{display:none}
+
+/* "More information" panel */
+dialog.info{width:min(760px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--rule);border-radius:6px;background:var(--wall);color:var(--ink)}
+dialog.info::backdrop{background:rgba(0,0,0,.55)}
+.info-in{display:grid;gap:18px;padding:28px}
+.info-top{display:flex;justify-content:space-between;gap:16px;align-items:start}
+.info h3{font-family:var(--display);font-weight:400;font-size:28px;line-height:1.15;margin:0;text-wrap:balance}
+.info .close{font:inherit;font-size:24px;line-height:1;background:none;border:0;color:var(--ink);cursor:pointer;padding:4px 10px;min-height:44px;min-width:44px}
+.info figure{max-width:340px}
+.info section{display:grid;gap:6px}
+.info h4{font-family:var(--mono);font-weight:400;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
+.info section p{margin:0;white-space:pre-line;max-width:65ch}
 </style>
 </head>
 <body>
@@ -179,9 +202,28 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--rule);paddin
 
   <section class="more" id="more" hidden aria-labelledby="more-h">
     <h2 id="more-h">More jars in the collection</h2>
-    <p>Loaded live from the Harvard Art Museums API.</p>
+    <p>Search the Harvard Art Museums collection, live. Select any object for more information.</p>
+    <form class="search" id="search" role="search">
+      <label class="visually-hidden" for="q">Search</label>
+      <input id="q" name="q" type="search" maxlength="80" placeholder="Try Korean, dragon, bronze…" autocomplete="off">
+      <label class="visually-hidden" for="scope">Search in</label>
+      <select id="scope" name="scope">
+        <option value="jars">Jars</option>
+        <option value="vessels">All vessels</option>
+      </select>
+      <button type="submit">Search</button>
+    </form>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
     <ul class="grid" id="more-grid"></ul>
+    <button class="loadmore" id="loadmore" type="button" hidden>Show more</button>
   </section>
+
+  <dialog class="info" id="info" aria-labelledby="info-h">
+    <div class="info-in">
+      <div class="info-top"><h3 id="info-h"></h3><button class="close" type="button" aria-label="Close">×</button></div>
+      <div id="info-body"></div>
+    </div>
+  </dialog>
 
   <footer>Object data from Harvard Art Museums collection records. Images are taken from the collection website's search grid. Dates are as given by the museums. The time rule is drawn to scale, which is why objects 1–3 cluster at the left.</footer>
 </div>
@@ -190,11 +232,56 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--rule);paddin
 // Live data from the Harvard Art Museums API, via this site's own /api functions
 // (the API key stays on the server). If the API is unavailable, the page keeps
 // the photos and text already written into it.
-(async () => {
-  const get = (path) => fetch(path).then((r) => (r.ok ? r.json() : Promise.reject(r.status)));
+(() => {
+  const get = (path) =>
+    fetch(path).then(async (r) => {
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body.error || "Request failed");
+      return body;
+    });
+  // Builds an element. All text from Harvard goes in through textContent, never as HTML.
+  const el = (tag, props = {}, ...kids) => {
+    const n = Object.assign(document.createElement(tag), props);
+    n.append(...kids.filter((k) => k != null && k !== ""));
+    return n;
+  };
 
-  try {
-    const { records } = await get("/api/objects");
+  // ---- "More information" panel ----
+  const dialog = document.getElementById("info");
+  const infoH = document.getElementById("info-h");
+  const infoBody = document.getElementById("info-body");
+  dialog.querySelector(".close").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+
+  async function openInfo(id, fallbackTitle) {
+    infoH.textContent = fallbackTitle || "Loading…";
+    infoBody.replaceChildren(el("p", { className: "status", textContent: "Loading record…" }));
+    if (!dialog.open) dialog.showModal();
+    try {
+      const r = await get("/api/object/" + encodeURIComponent(id));
+      infoH.textContent = r.title || fallbackTitle || "Untitled";
+      const facts = [
+        ["Date", r.dated], ["Period", r.period], ["Culture", r.culture], ["People", r.people.join("; ")],
+        ["Classification", r.classification], ["Medium", r.medium], ["Technique", r.technique],
+        ["Dimensions", r.dimensions], ["Object number", r.objectnumber], ["Credit", r.creditline],
+      ].filter(([, v]) => v);
+      const dl = el("dl");
+      for (const [k, v] of facts) dl.append(el("dt", { textContent: k }), el("dd", { textContent: v }));
+      const texts = [["Label", r.labeltext], ["Description", r.description], ["Commentary", r.commentary], ["Provenance", r.provenance]]
+        .filter(([, v]) => v)
+        .map(([k, v]) => el("section", {}, el("h4", { textContent: k }), el("p", { textContent: v })));
+      const img = r.image ? el("figure", {}, el("img", { src: r.image, alt: r.alt || r.title || "" })) : null;
+      const link = r.url ? el("p", { className: "src" }, el("a", { href: r.url, target: "_blank", rel: "noopener", textContent: "View on the Harvard Art Museums website" })) : null;
+      const wrap = el("div", {}, img, dl, ...texts, link);
+      wrap.style.cssText = "display:grid;gap:18px";
+      infoBody.replaceChildren(wrap);
+    } catch (e) {
+      infoBody.replaceChildren(el("p", { textContent: e.message }));
+    }
+  }
+
+  // ---- Exhibition jars: larger photos, credit lines, "More information" buttons ----
+  get("/api/objects").then(({ records }) => {
     for (const rec of records) {
       const li = document.querySelector('.obj[data-id="' + rec.id + '"]');
       if (!li) continue;
@@ -204,41 +291,61 @@ footer{font-size:13px;color:var(--muted);border-top:1px solid var(--rule);paddin
         hi.onload = () => { img.src = hi.src; };
         hi.src = rec.image;
       }
-      if (rec.creditline) {
-        const p = document.createElement("p");
-        p.className = "credit";
-        p.textContent = rec.creditline;
-        li.querySelector(".label .src").before(p);
-      }
+      const src = li.querySelector(".label .src");
+      if (rec.creditline) src.before(el("p", { className: "credit", textContent: rec.creditline }));
+      const btn = el("button", { type: "button", className: "linkbtn", textContent: "More information" });
+      btn.addEventListener("click", () => openInfo(rec.id, li.querySelector("h2").textContent));
+      src.append(btn);
     }
-  } catch (e) { console.warn("Exhibition data unavailable", e); }
+  }).catch((e) => console.warn("Exhibition data unavailable", e));
 
-  try {
-    const { records } = await get("/api/more");
-    if (!records.length) return;
-    const grid = document.getElementById("more-grid");
-    for (const rec of records) {
-      const li = document.createElement("li");
-      const a = document.createElement("a");
-      a.href = rec.url;
-      a.target = "_blank";
-      a.rel = "noopener";
-      const fig = document.createElement("figure");
-      const img = document.createElement("img");
-      img.src = rec.image;
-      img.alt = rec.alt || rec.title;
-      img.loading = "lazy";
-      fig.append(img);
-      const t = document.createElement("strong");
-      t.textContent = rec.title;
-      const d = document.createElement("span");
-      d.textContent = [rec.culture, rec.dated].filter(Boolean).join(" · ");
-      a.append(fig, t, d);
-      li.append(a);
-      grid.append(li);
+  // ---- Search ----
+  const section = document.getElementById("more");
+  const grid = document.getElementById("more-grid");
+  const status = document.getElementById("status");
+  const more = document.getElementById("loadmore");
+  const form = document.getElementById("search");
+  let current = null; // { q, scope, page, pages } of the last search
+
+  function card(rec) {
+    const btn = el("button", { type: "button", className: "card" },
+      el("figure", {}, rec.image ? el("img", { src: rec.image, alt: rec.alt || rec.title || "", loading: "lazy" }) : el("span", { textContent: "No image" })),
+      el("strong", { textContent: rec.title || "Untitled" }),
+      el("span", { textContent: [rec.culture, rec.dated].filter(Boolean).join(" · ") }));
+    btn.addEventListener("click", () => openInfo(rec.id, rec.title));
+    return el("li", {}, btn);
+  }
+
+  async function search(q, scope, page) {
+    status.textContent = "Searching…";
+    more.hidden = true;
+    try {
+      const r = await get("/api/search?" + new URLSearchParams({ q, scope, page }));
+      if (page === 1) grid.replaceChildren();
+      grid.append(...r.records.map(card));
+      current = { q: r.query, scope: r.scope, page: r.page, pages: r.pages };
+      const what = r.scope === "jars" ? "jars" : "vessels";
+      status.textContent = r.total
+        ? r.total.toLocaleString() + " " + what + (r.query ? " matching “" + r.query + "”" : "") + " · showing " + grid.children.length
+        : "No " + what + " found" + (r.query ? " for “" + r.query + "”." : ".");
+      more.hidden = r.page >= r.pages;
+    } catch (e) {
+      status.textContent = e.message;
     }
-    document.getElementById("more").hidden = false;
-  } catch (e) { console.warn("More jars unavailable", e); }
+  }
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    search(form.q.value, form.scope.value, 1);
+  });
+  more.addEventListener("click", () => current && search(current.q, current.scope, current.page + 1));
+
+  // Starting view: the most-viewed jars not already in the exhibition.
+  get("/api/more").then(({ records }) => {
+    grid.replaceChildren(...records.map(card));
+    status.textContent = "Most-viewed jars in the collection";
+    section.hidden = false;
+  }).catch((e) => console.warn("Collection search unavailable", e));
 })();
 </script>
 </body>
