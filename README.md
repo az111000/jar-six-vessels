@@ -12,3 +12,14 @@ A small online exhibition of six jars from the Harvard Art Museums collection, m
 6. Large, Broad-Shouldered Jar with Decoration of Two Striding Dragons, Each Pursuing a Flaming Jewel — mid-18th century
 
 Object data comes from Harvard Art Museums collection records.
+
+## Live collection data
+
+The page loads larger photos, credit lines and a "More jars in the collection" section from the [Harvard Art Museums API](https://github.com/harvardartmuseums/api-docs) through two Vercel functions:
+
+- `/api/objects` returns the six exhibition objects.
+- `/api/more` returns other jars from the collection whose images the museum allows to be displayed.
+
+The API key is **not** in this repository. The functions read it from the `HARVARD_API_KEY` environment variable, set in the Vercel project settings. If the key is missing or the API is down, the page still shows the photos and text built into `index.html`.
+
+For local testing, `vercel env pull` writes the key to `.env.local`, which `.gitignore` keeps out of git.
